@@ -1,40 +1,30 @@
-output "vpc_one_id" {
-  value       = module.vpc_region_one.vpc_id
-  description = "VPC ID for region one"
+output "vpc_one_instance_private_ip" {
+  description = "Private IP of VPC 1 instance"
+  value       = aws_instance.vpc_one_instance.private_ip
 }
 
-output "vpc_one_subnet_ids" {
-  value       = module.vpc_region_one.subnet_ids
-  description = "Subnet IDs for region one"
+output "vpc_two_instance_private_ip" {
+  description = "Private IP of VPC 2 instance"
+  value       = aws_instance.vpc_two_instance.private_ip
 }
 
-output "vpc_one_route_table_ids" {
-  value       = module.vpc_region_one.route_table_ids
-  description = "Route table IDs for region one"
+output "vpc_one_instance_public_ip" {
+  description = "Public IP of VPC 1 instance (if available)"
+  value       = aws_instance.vpc_one_instance.public_ip
 }
 
-output "vpc_two_id" {
-  value       = module.vpc_region_two.vpc_id
-  description = "VPC ID for region two"
+output "vpc_two_instance_public_ip" {
+  description = "Public IP of VPC 2 instance (if available)"
+  value       = aws_instance.vpc_two_instance.public_ip
 }
 
-output "vpc_two_subnet_ids" {
-  value       = module.vpc_region_two.subnet_ids
-  description = "Subnet IDs for region two"
-}
-
-output "vpc_two_route_table_ids" {
-  value       = module.vpc_region_two.route_table_ids
-  description = "Route table IDs for region two"
-}
-
-# VPC Peering Outputs
-output "peering_connection_id" {
-  value       = aws_vpc_peering_connection.peer_connection.id
-  description = "VPC Peering Connection ID"
-}
-
-output "peering_status" {
-  value       = aws_vpc_peering_connection.peer_connection.accept_status
-  description = "VPC Peering Connection Status"
+output "test_instructions" {
+  description = "Instructions to test VPC peering"
+  value = <<-EOT
+    To test VPC peering:
+    1. SSH into VPC 1 instance: ssh -i your-key.pem ec2-user@${aws_instance.vpc_one_instance.public_ip}
+    2. Test connection to VPC 2: curl http://${aws_instance.vpc_two_instance.private_ip}
+    3. SSH into VPC 2 instance: ssh -i your-key.pem ec2-user@${aws_instance.vpc_two_instance.public_ip}
+    4. Test connection to VPC 1: curl http://${aws_instance.vpc_one_instance.private_ip}
+  EOT
 }

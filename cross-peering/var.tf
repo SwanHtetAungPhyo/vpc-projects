@@ -79,3 +79,18 @@ variable "vpc_two_create_igw" {
   description = "Create Internet Gateway for VPC two"
   default     = true
 }
+variable "instance_type" {
+  type        = string
+  description = "EC2 instance type"
+  default     = "t2.micro"
+}
+
+variable "key_name_region_one" {
+  type        = string
+  description = "Key pair name for region one"
+}
+
+variable "key_name_region_two" {
+  type        = string
+  description = "Key pair name for region two"
+}

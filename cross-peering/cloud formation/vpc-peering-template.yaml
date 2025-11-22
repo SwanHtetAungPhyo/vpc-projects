@@ -1,0 +1,165 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'VPC Peering Connection Setup and Route Configuration'
+
+Parameters:
+  VPCOneCIDR:
+    Type: String
+    Default: '10.0.0.0/16'
+    Description: CIDR block for VPC One (update with actual CIDR)
+
+  VPCTwoCIDR:
+    Type: String
+    Default: '10.1.0.0/16'
+    Description: CIDR block for VPC Two (update with actual CIDR)
+
+Resources:
+  # Accept the VPC Peering Connection
+  VPCPeeringConnectionAccepter:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      VpcId: vpc-044ea9047b53ca250  # VPC Two (accepter)
+      PeerVpcId: vpc-0b6ac52d5ff94c8f8  # VPC One (requester)
+      Tags:
+        - Key: Name
+          Value: vpc-peering-connection
+
+  # Routes for VPC One Route Tables
+  VPCOneRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: VPCPeeringConnectionAccepter
+    Properties:
+      RouteTableId: rtb-070a8bab44f87efac
+      DestinationCidrBlock: !Ref VPCTwoCIDR
+      VpcPeeringConnectionId: pcx-06f47776c50d326dc
+
+  VPCOneRoute2:
+    Type: AWS::EC2::Route
+    DependsOn: VPCPeeringConnectionAccepter
+    Properties:
+      RouteTableId: rtb-06fae9e3a2e15bf77
+      DestinationCidrBlock: !Ref VPCTwoCIDR
+      VpcPeeringConnectionId: pcx-06f47776c50d326dc
+
+  # Route for VPC Two Route Table
+  VPCTwoRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCPeeringConnectionAccepter
+    Properties:
+      RouteTableId: rtb-090b706db056a9e29
+      DestinationCidrBlock: !Ref VPCOneCIDR
+      VpcPeeringConnectionId: pcx-06f47776c50d326dc
+
+  # Security Group for VPC One Test Instance
+  VPCOneSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for VPC One test instance
+      VpcId: vpc-0b6ac52d5ff94c8f8
+      SecurityGroupIngress:
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: !Ref VPCTwoCIDR
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref VPCTwoCIDR
+      Tags:
+        - Key: Name
+          Value: vpc-one-test-sg
+
+  # Security Group for VPC Two Test Instance
+  VPCTwoSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for VPC Two test instance
+      VpcId: vpc-044ea9047b53ca250
+      SecurityGroupIngress:
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: !Ref VPCOneCIDR
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref VPCOneCIDR
+      Tags:
+        - Key: Name
+          Value: vpc-two-test-sg
+
+  # Test EC2 Instance in VPC One
+  VPCOneTestInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Sub '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}'
+      InstanceType: t2.micro
+      SubnetId: subnet-06e141fd7d3bf2637
+      SecurityGroupIds:
+        - !Ref VPCOneSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<h1>VPC One Test Server - $(hostname -f)</h1>" > /var/www/html/index.html
+      Tags:
+        - Key: Name
+          Value: vpc-one-test-instance
+
+  # Test EC2 Instance in VPC Two
+  VPCTwoTestInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Sub '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}'
+      InstanceType: t2.micro
+      SubnetId: subnet-02eb004e8b798ae10
+      SecurityGroupIds:
+        - !Ref VPCTwoSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<h1>VPC Two Test Server - $(hostname -f)</h1>" > /var/www/html/index.html
+      Tags:
+        - Key: Name
+          Value: vpc-two-test-instance
+
+Outputs:
+  PeeringConnectionId:
+    Description: VPC Peering Connection ID
+    Value: pcx-06f47776c50d326dc
+
+  VPCOneInstanceId:
+    Description: Instance ID in VPC One
+    Value: !Ref VPCOneTestInstance
+
+  VPCOneInstancePrivateIP:
+    Description: Private IP of instance in VPC One
+    Value: !GetAtt VPCOneTestInstance.PrivateIp
+
+  VPCTwoInstanceId:
+    Description: Instance ID in VPC Two
+    Value: !Ref VPCTwoTestInstance
+
+  VPCTwoInstancePrivateIP:
+    Description: Private IP of instance in VPC Two
+    Value: !GetAtt VPCTwoTestInstance.PrivateIp
+
+  TestCommand:
+    Description: Command to test connectivity
+    Value: !Sub |
+      From VPC One: ping ${VPCTwoTestInstance.PrivateIp} or curl http://${VPCTwoTestInstance.PrivateIp}
+      From VPC Two: ping ${VPCOneTestInstance.PrivateIp} or curl http://${VPCOneTestInstance.PrivateIp}
