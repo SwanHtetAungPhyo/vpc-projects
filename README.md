@@ -2,6 +2,10 @@
 
 This Terraform project sets up a VPC peering connection between two VPCs in different AWS regions. It also provisions an EC2 instance in each VPC to demonstrate connectivity.
 
+
+## Architecture Diagram
+
+![img.png](img.png)
 ## Prerequisites
 
 Before you begin, ensure you have the following:
